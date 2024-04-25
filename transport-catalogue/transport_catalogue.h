@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 #include <deque>
 #include <vector>
 #include <set>
@@ -12,26 +13,48 @@
 
 namespace catalogue {
     struct Stop {
-        double lat = .0;
-        double lng = .0;
-        std::set<std::string_view> buses;
+        std::string stop_name;
+        geo::Coordinates coordinates;
+    };
+
+    struct Bus {
+        std::string bus_name;
+        std::vector<Stop*> stops;
+    };
+
+    struct RouteInformation {
+        int all_stops;
+        int unique_stops;
+        double distance;
+    };
+
+    class Hasher {
+    public:
+        size_t operator()(const Stop* stop) const {
+            size_t hash_s = std::hash<std::string_view>{}(stop->stop_name) * 37
+                + std::hash<double>{}(stop->coordinates.lat)
+                + std::hash<double>{}(stop->coordinates.lng);
+            return hash_s;
+        }
     };
 
     class TransportCatalogue {
 
     public:
-        void AddStop(std::string id, double lat, double lng);
-        std::string_view AddStopFromRoute(std::string stop_name);
-        void AddRoute(std::string id, std::vector<std::string_view> route_stops);
-        const Stop* FindStop(std::string_view stop);
-        const std::pair<std::string_view, std::vector<std::string_view>> FindRoute(std::string_view route);
-        std::tuple<int, int, double> GetRouteInformation(std::string_view route);
+        void AddStop(const std::string& name, geo::Coordinates stop_coordinates);
+        void AddBus(const std::string& name, std::vector<std::string_view> route_stops);
+        Stop* FindStop(std::string_view stop);
+        Bus* FindBus(std::string_view bus);
+        std::set<Bus*>* GetBusesForStop(Stop* stop);
+        RouteInformation GetRouteInformation(Bus& bus);
 
     private:
-        std::unordered_map<std::string_view, Stop> stops_;
-        std::unordered_map<std::string_view, std::vector<std::string_view>> routes_;
-        std::deque<std::string> stop_list_;
-        std::deque<std::string> bus_list_;
+        std::unordered_map<Stop*, std::set<Bus*>> stop_and_buses_;
+        std::deque<Stop> stops_;
+        std::deque<Bus> buses_;
+
+        void AddStopsToBus(Bus* bus, std::vector<std::string_view> route_stops);
+        void AddBusToStops(Bus* bus);
     };
 }
 

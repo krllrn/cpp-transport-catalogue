@@ -109,11 +109,11 @@ void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& 
     for (const CommandDescription& command_description : commands_) {
         if (command_description.command == "Stop") {
             geo::Coordinates stop_coordinates = ParseCoordinates(command_description.description);
-            catalogue.AddStop(command_description.id, stop_coordinates.lat, stop_coordinates.lng);
+            catalogue.AddStop(command_description.id, stop_coordinates);
         }
         else if (command_description.command == "Bus") {
             std::vector<std::string_view> route_stops = ParseRoute(command_description.description);
-            catalogue.AddRoute(command_description.id, route_stops);
+            catalogue.AddBus(command_description.id, route_stops);
         }
     }
 }
