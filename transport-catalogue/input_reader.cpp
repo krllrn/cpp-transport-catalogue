@@ -104,12 +104,30 @@ void InputReader::ParseLine(std::string_view line) {
     }
 }
 
+/**
+    * Парсит строку вида "10.123,  -30.1837, 9900m to Rasskazovka, 100m to Marushkino"
+    и возвращает вектор 
+    */
+std::unordered_map<std::string_view, int> ParseDistance(std::string_view str) {
+    std::vector<std::string_view> split_with_comma = Split(str, ',');
+    std::unordered_map<std::string_view, int> split_stop_dist;
+    if (split_with_comma.size() > 2) {
+        split_with_comma.erase(split_with_comma.begin(), split_with_comma.begin() + 2);
+        for (const auto s : split_with_comma) {
+            std::vector<std::string_view> split_stop_d = Split(s, ' ');
+            split_stop_dist[std::move(split_stop_d[2])] = std::stoi(std::string(split_stop_d[0].substr(0, split_stop_d[0].size() - 1)));
+        }
+    }
+    return split_stop_dist;
+}
+
 
 void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& catalogue) const {
     for (const CommandDescription& command_description : commands_) {
         if (command_description.command == "Stop") {
             geo::Coordinates stop_coordinates = ParseCoordinates(command_description.description);
-            catalogue.AddStop(command_description.id, stop_coordinates);
+            std::unordered_map<std::string_view, int> stops = ParseDistance(command_description.description);
+            catalogue.AddStop(command_description.id, stop_coordinates, stops);
         }
         else if (command_description.command == "Bus") {
             std::vector<std::string_view> route_stops = ParseRoute(command_description.description);

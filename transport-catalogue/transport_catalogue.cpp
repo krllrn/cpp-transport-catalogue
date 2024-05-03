@@ -6,7 +6,7 @@
 
 using namespace catalogue;
 
-void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_coordinates) {
+void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_coordinates, std::unordered_map<std::string_view, int> next_stops) {
     auto stop = TransportCatalogue::FindStop(name);
     if (stop != nullptr) {
         stop->coordinates = stop_coordinates;
@@ -15,13 +15,14 @@ void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_
         stops_.emplace_back(std::move(Stop{  name, stop_coordinates }));
         stop_and_buses_[TransportCatalogue::FindStop(name)] = {};
     }
+    AddDistanceToOtherStops(FindStop(name), next_stops);
 }
 
 void TransportCatalogue::AddStopsToBus(Bus* bus, std::vector<std::string_view> route_stops) {
     for (const auto s : route_stops) {
         const Stop* stop = TransportCatalogue::FindStop(s);
         if (stop == nullptr) {
-            AddStop(std::move(std::string(s)), geo::Coordinates{});
+            AddStop(std::move(std::string(s)), geo::Coordinates{}, {});
         }
     }
     for (const auto& s : route_stops) {
@@ -86,4 +87,19 @@ RouteInformation TransportCatalogue::GetRouteInformation(Bus& bus) {
     }
     RouteInformation info_to_return{ all_stops, unique_stops, distance };
     return info_to_return;
+}
+
+void TransportCatalogue::AddDistanceToOtherStops(Stop* stop, std::unordered_map<std::string_view, int> next_stops) {
+    if (next_stops.size() != 0) {
+        for (const auto [stop_name, dist] : next_stops) {
+            auto route_stop = FindStop(stop_name);
+            if (route_stop != nullptr) {
+                stop_and_distances_[stop].insert({ route_stop, dist });
+            }
+            else {
+                AddStop(std::string(stop_name), geo::Coordinates{}, {});
+                stop_and_distances_[stop].insert({ FindStop(stop_name), dist});
+            }
+        }
+    }
 }

@@ -28,20 +28,10 @@ namespace catalogue {
         double distance;
     };
 
-    class Hasher {
-    public:
-        size_t operator()(const Stop* stop) const {
-            size_t hash_s = std::hash<std::string_view>{}(stop->stop_name) * 37
-                + std::hash<double>{}(stop->coordinates.lat)
-                + std::hash<double>{}(stop->coordinates.lng);
-            return hash_s;
-        }
-    };
-
     class TransportCatalogue {
 
     public:
-        void AddStop(const std::string& name, geo::Coordinates stop_coordinates);
+        void AddStop(const std::string& name, geo::Coordinates stop_coordinates, std::unordered_map<std::string_view, int> next_stops);
         void AddBus(const std::string& name, std::vector<std::string_view> route_stops);
         Stop* FindStop(std::string_view stop);
         Bus* FindBus(std::string_view bus);
@@ -50,11 +40,14 @@ namespace catalogue {
 
     private:
         std::unordered_map<Stop*, std::set<Bus*>> stop_and_buses_;
+        std::unordered_map<Stop*, std::unordered_map<Stop*, int>> stop_and_distances_;
         std::deque<Stop> stops_;
         std::deque<Bus> buses_;
 
         void AddStopsToBus(Bus* bus, std::vector<std::string_view> route_stops);
         void AddBusToStops(Bus* bus);
+        void AddDistanceToOtherStops(Stop* stop, std::unordered_map<std::string_view, int> next_stops);
+        std::unordered_map<Stop*, int> ParseNextStopsAndDistance(std::vector<std::string_view> stops);
     };
 }
 
