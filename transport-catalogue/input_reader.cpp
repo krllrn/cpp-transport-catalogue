@@ -1,7 +1,5 @@
 #include "input_reader.h"
 
-#include <algorithm>
-#include <cassert>
 #include <iterator>
 
 using namespace input_reader;
@@ -105,20 +103,20 @@ void InputReader::ParseLine(std::string_view line) {
 }
 
 /**
-    * Парсит строку вида "10.123,  -30.1837, 9900m to Rasskazovka, 100m to Marushkino"
-    и возвращает вектор 
+    * Парсит строку вида "10.123,  -30.1837, 7500m to Rossoshanskaya ulitsa, 1800m to Biryusinka"
+    и возвращает unordered_map с ключем = названию маршрута и значением = дистанции 
     */
 std::unordered_map<std::string_view, int> ParseDistance(std::string_view str) {
     std::vector<std::string_view> split_with_comma = Split(str, ',');
-    std::unordered_map<std::string_view, int> split_stop_dist;
+    std::unordered_map<std::string_view, int> stop_and_dist;
     if (split_with_comma.size() > 2) {
         split_with_comma.erase(split_with_comma.begin(), split_with_comma.begin() + 2);
-        for (const auto s : split_with_comma) {
-            std::vector<std::string_view> split_stop_d = Split(s, ' ');
-            split_stop_dist[std::move(split_stop_d[2])] = std::stoi(std::string(split_stop_d[0].substr(0, split_stop_d[0].size() - 1)));
+        for (const auto& s : split_with_comma) {
+            stop_and_dist[s.substr(s.find_first_of('m') + 5, s.size())]
+                = std::stoi(std::string(s.substr(0, s.find_first_of('m'))));
         }
     }
-    return split_stop_dist;
+    return stop_and_dist;
 }
 
 
@@ -127,11 +125,13 @@ void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& 
         if (command_description.command == "Stop") {
             geo::Coordinates stop_coordinates = ParseCoordinates(command_description.description);
             std::unordered_map<std::string_view, int> stops = ParseDistance(command_description.description);
-            catalogue.AddStop(command_description.id, stop_coordinates, stops);
+            auto stop_name = Trim(command_description.id);
+            catalogue.AddStop(std::string(stop_name), stop_coordinates, stops);
         }
         else if (command_description.command == "Bus") {
             std::vector<std::string_view> route_stops = ParseRoute(command_description.description);
-            catalogue.AddBus(command_description.id, route_stops);
+            auto bus_name = Trim(command_description.id);
+            catalogue.AddBus(std::string(bus_name), route_stops);
         }
     }
 }

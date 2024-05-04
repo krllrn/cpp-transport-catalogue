@@ -3,26 +3,33 @@
 #include <iostream>
 #include <iomanip>
 
-using namespace std::literals;
 using namespace stat_reader;
+
+std::string_view TrimReader(std::string_view string) {
+    const auto start = string.find_first_not_of(' ');
+    if (start == string.npos) {
+        return {};
+    }
+    return string.substr(start, string.find_last_not_of(' ') + 1 - start);
+}
 
 void ParseAndPrintStatAboutStop(const catalogue::TransportCatalogue& transport_catalogue, std::string_view request, std::string_view information,
     std::ostream& output) {
     auto current_stop = const_cast<catalogue::TransportCatalogue&>(transport_catalogue).FindStop(information);
     if (current_stop == nullptr) {
-        output << request.data() << ": not found" << std::endl;
+        output << request.data() << ": not found\n";
     }
     else {
         auto current_bus = const_cast<catalogue::TransportCatalogue&>(transport_catalogue).GetBusesForStop(current_stop);
         if (current_bus->size() == 0) {
-            output << request.data() << ": no buses" << std::endl;
+            output << request.data() << ": no buses\n";
         }
         else {
             output << request.data() << ": buses";
             for (const auto b : *current_bus) {
-                output << " "s << b->bus_name;
+                output << " " << b->bus_name;
             }
-            output << std::endl;
+            output << "\n";
         }
     }
 }
@@ -31,25 +38,26 @@ void ParseAndPrintStatAboutBus(const catalogue::TransportCatalogue& transport_ca
     std::ostream& output) {
     auto bus = const_cast<catalogue::TransportCatalogue&>(transport_catalogue).FindBus(information);
     if (bus == nullptr) {
-        output << request.data() << ": not found"s << std::endl;
+        output << request.data() << ": not found\n";
     }
     else {
         catalogue::RouteInformation route_info = const_cast<catalogue::TransportCatalogue&>(transport_catalogue).GetRouteInformation(*bus);
-        output << std::setprecision(6) << request.data() << ": "s
-            << std::to_string(route_info.all_stops) << " stops on route, "s
-            << std::to_string(route_info.unique_stops) << " unique stops, "s
-            << std::to_string(route_info.distance) << " route length"s << std::endl;
+        output << std::setprecision(6) << request.data() << ": "
+            << route_info.all_stops << " stops on route, "
+            << route_info.unique_stops << " unique stops, "
+            << route_info.route_length << " route length, "
+            << route_info.curvature << " curvature\n";
     }
 }
 
 void stat_reader::ParseAndPrintStat(const catalogue::TransportCatalogue& transport_catalogue, std::string_view request,
     std::ostream& output) {
     std::string_view command = request.substr(0, request.find_first_of(' '));
-    std::string_view information = request.substr(request.find_first_of(' ') + 1, request.size() - request.find_first_of(' '));
-    if (command == "Stop"s) {
+    std::string_view information = TrimReader(request.substr(request.find_first_of(' ') + 1, request.size() - request.find_first_of(' ')));
+    if (command == "Stop") {
         ParseAndPrintStatAboutStop(transport_catalogue, request, information, output);
     }
-    else if (command == "Bus"s) {
+    else if (command == "Bus") {
         ParseAndPrintStatAboutBus(transport_catalogue, request, information, output);
     }
 }
