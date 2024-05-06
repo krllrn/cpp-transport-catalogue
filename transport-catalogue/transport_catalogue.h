@@ -66,13 +66,17 @@ namespace catalogue {
         void AddBus(const std::string& name, std::vector<std::string_view> route_stops);
         Stop* FindStop(std::string_view stop);
         Bus* FindBus(std::string_view bus);
-        void AddDistanceBetweenStops(const std::string_view& from, const std::string_view& to, int distance);
-        std::set<Bus*, BusCmp>* GetBusesForStop(Stop* stop);
-        RouteInformation GetRouteInformation(Bus& bus);
+        void AddDistanceBetweenStops(Stop* from, Stop* to, int distance);
+        std::set<Bus*, BusCmp>* GetBusesForStop(const Stop* stop);
+        RouteInformation GetRouteInformation(const Bus& bus);
 
     private:
         std::unordered_map<Stop*, std::set<Bus*, BusCmp>> stop_and_buses_;
         std::unordered_map<RoutePoints, int, RoutePoints::Hasher, RoutePoints::EqualTo> stop_and_distances_;
+
+        std::unordered_map<std::string_view, Stop*> stops_catalogue_;
+        std::unordered_map<std::string_view, Bus*> buses_catalogue_;
+
         std::deque<Stop> stops_;
         std::deque<Bus> buses_;
 

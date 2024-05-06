@@ -113,7 +113,10 @@ void ParseAndAddDistance(catalogue::TransportCatalogue& catalogue, const std::st
         for (const auto& s : split_with_comma) {
             auto to = s.substr(s.find_first_of('m') + 5, s.size());
             int distance = std::stoi(std::string(s.substr(0, s.find_first_of('m'))));
-            catalogue.AddDistanceBetweenStops(from, to, distance);
+            if (catalogue.FindStop(to) == nullptr) {
+                catalogue.AddStop(std::string(to), {});
+            }
+            catalogue.AddDistanceBetweenStops(catalogue.FindStop(from), catalogue.FindStop(to), distance);
         }
     }
 }
