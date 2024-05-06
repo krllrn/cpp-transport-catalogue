@@ -39,8 +39,8 @@ void TestWithLocalFiles() {
 }
 
 int main() {
-    //TestWithLocalFiles();
-    
+    TestWithLocalFiles();
+    /*
     catalogue::TransportCatalogue catalogue;
 
     int base_request_count;
@@ -62,5 +62,5 @@ int main() {
         string line;
         getline(cin, line);
         stat_reader::ParseAndPrintStat(catalogue, line, cout);
-    }
+    }*/
 }

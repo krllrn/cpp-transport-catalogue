@@ -4,7 +4,7 @@
 
 using namespace catalogue;
 
-void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_coordinates, std::unordered_map<std::string_view, int> next_stops) {
+void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_coordinates) {
     auto stop = TransportCatalogue::FindStop(name);
     if (stop != nullptr) {
         stop->coordinates = stop_coordinates;
@@ -13,14 +13,13 @@ void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_
         stops_.emplace_back(std::move(Stop{ name, stop_coordinates }));
         stop_and_buses_[TransportCatalogue::FindStop(name)] = {};
     }
-    AddDistanceBetweenStops(FindStop(name), std::move(next_stops));
 }
 
 void TransportCatalogue::AddStopsToBus(Bus* bus, const std::vector<std::string_view>& route_stops) {
     for (const auto& stop_at_route : route_stops) {
         const Stop* current_stop = TransportCatalogue::FindStop(stop_at_route);
         if (current_stop == nullptr) {
-            AddStop(std::string(stop_at_route), geo::Coordinates{}, {});
+            AddStop(std::string(stop_at_route), geo::Coordinates{});
         }
     }
     for (const auto& stop_at_route : route_stops) {
@@ -77,8 +76,8 @@ int TransportCatalogue::GetRouteLength(std::vector<Stop*> bus_stops) {
     for (size_t i = 0; i < bus_stops.size() - 1; ++i) {
         Stop* current = bus_stops[i];
         Stop* next = bus_stops[i + 1];
-        BetweenStops first = { current, next };
-        BetweenStops second = { next, current };
+        RoutePoints first = { current, next };
+        RoutePoints second = { next, current };
         if (stop_and_distances_.find(first) != stop_and_distances_.end()) {
             route_length += stop_and_distances_.at(first);
         }
@@ -115,18 +114,15 @@ RouteInformation TransportCatalogue::GetRouteInformation(Bus& bus) {
     return info_to_return;
 }
 
-void TransportCatalogue::AddDistanceBetweenStops(Stop* stop, std::unordered_map<std::string_view, int> next_stops) {
-    if (!next_stops.empty()) {
-        for (const auto& [stop_name, dist] : next_stops) {
-            auto route_stop = FindStop(stop_name);
-            if (route_stop != nullptr) {
-                BetweenStops stops_point = { stop, route_stop };
-                stop_and_distances_[stops_point] = dist;
-            }
-            else {
-                AddStop(std::string(stop_name), geo::Coordinates{}, {});
-                stop_and_distances_[{ stop, FindStop(stop_name) }] = dist;
-            }
-        }
+void TransportCatalogue::AddDistanceBetweenStops(const std::string_view& from, const std::string_view& to, int distance) {
+    auto from_stop = FindStop(from);
+    auto to_stop = FindStop(to);
+    if (to_stop != nullptr) {
+        RoutePoints stops_point = { from_stop, to_stop };
+        stop_and_distances_[stops_point] = distance;
+    }
+    else {
+        AddStop(std::string(to), geo::Coordinates{});
+        stop_and_distances_[{ from_stop, FindStop(to) }] = distance;
     }
 }

@@ -26,18 +26,18 @@ namespace catalogue {
         std::vector<Stop*> stops;
     };
 
-    struct BetweenStops {
+    struct RoutePoints {
         Stop* first;
         Stop* second;
 
         struct EqualTo {
-            bool operator()(const BetweenStops& lhs, const BetweenStops& rhs) const {
+            bool operator()(const RoutePoints& lhs, const RoutePoints& rhs) const {
                 return (lhs.first == rhs.first && lhs.second == rhs.second);
             }
         };
 
         struct Hasher {
-            size_t operator()(const BetweenStops& stops_point) const {
+            size_t operator()(const RoutePoints& stops_point) const {
                 size_t hash_s = std::hash<std::string>{}(stops_point.first->stop_name) * 37
                     + std::hash<std::string>{}(stops_point.second->stop_name) * 37 * 37 * 37;
                 return hash_s;
@@ -62,22 +62,22 @@ namespace catalogue {
     class TransportCatalogue {
 
     public:
-        void AddStop(const std::string& name, geo::Coordinates stop_coordinates, std::unordered_map<std::string_view, int> next_stops);
+        void AddStop(const std::string& name, geo::Coordinates stop_coordinates);
         void AddBus(const std::string& name, std::vector<std::string_view> route_stops);
         Stop* FindStop(std::string_view stop);
         Bus* FindBus(std::string_view bus);
+        void AddDistanceBetweenStops(const std::string_view& from, const std::string_view& to, int distance);
         std::set<Bus*, BusCmp>* GetBusesForStop(Stop* stop);
         RouteInformation GetRouteInformation(Bus& bus);
 
     private:
         std::unordered_map<Stop*, std::set<Bus*, BusCmp>> stop_and_buses_;
-        std::unordered_map<BetweenStops, int, BetweenStops::Hasher, BetweenStops::EqualTo> stop_and_distances_;
+        std::unordered_map<RoutePoints, int, RoutePoints::Hasher, RoutePoints::EqualTo> stop_and_distances_;
         std::deque<Stop> stops_;
         std::deque<Bus> buses_;
 
         void AddStopsToBus(Bus* bus, const std::vector<std::string_view>& route_stops);
         void AddBusToStops(Bus* bus);
-        void AddDistanceBetweenStops(Stop* stop, std::unordered_map<std::string_view, int> next_stops);
         int GetRouteLength(std::vector<Stop*> bus_stops);
         double GetGeoDistance(std::vector<Stop*> bus_stops);
     };

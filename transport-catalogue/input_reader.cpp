@@ -104,29 +104,27 @@ void InputReader::ParseLine(std::string_view line) {
 
 /**
     * Парсит строку вида "10.123,  -30.1837, 7500m to Rossoshanskaya ulitsa, 1800m to Biryusinka"
-    и возвращает unordered_map с ключем = названию маршрута и значением = дистанции 
+    и передает в TransportCatalogue для добавления дистанции
     */
-std::unordered_map<std::string_view, int> ParseDistance(std::string_view str) {
+void ParseAndAddDistance(catalogue::TransportCatalogue& catalogue, const std::string_view& from, std::string_view str) {
     std::vector<std::string_view> split_with_comma = Split(str, ',');
-    std::unordered_map<std::string_view, int> stop_and_dist;
     if (split_with_comma.size() > 2) {
         split_with_comma.erase(split_with_comma.begin(), split_with_comma.begin() + 2);
         for (const auto& s : split_with_comma) {
-            stop_and_dist[s.substr(s.find_first_of('m') + 5, s.size())]
-                = std::stoi(std::string(s.substr(0, s.find_first_of('m'))));
+            auto to = s.substr(s.find_first_of('m') + 5, s.size());
+            int distance = std::stoi(std::string(s.substr(0, s.find_first_of('m'))));
+            catalogue.AddDistanceBetweenStops(from, to, distance);
         }
     }
-    return stop_and_dist;
 }
-
 
 void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& catalogue) const {
     for (const CommandDescription& command_description : commands_) {
         if (command_description.command == "Stop") {
             geo::Coordinates stop_coordinates = ParseCoordinates(command_description.description);
-            std::unordered_map<std::string_view, int> stops = ParseDistance(command_description.description);
             auto stop_name = Trim(command_description.id);
-            catalogue.AddStop(std::string(stop_name), stop_coordinates, stops);
+            catalogue.AddStop(std::string(stop_name), stop_coordinates);
+            ParseAndAddDistance(catalogue, stop_name, command_description.description);
         }
         else if (command_description.command == "Bus") {
             std::vector<std::string_view> route_stops = ParseRoute(command_description.description);
