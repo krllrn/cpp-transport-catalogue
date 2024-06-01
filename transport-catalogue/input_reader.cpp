@@ -132,7 +132,7 @@ void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& 
         else if (command_description.command == "Bus") {
             std::vector<std::string_view> route_stops = ParseRoute(command_description.description);
             auto bus_name = Trim(command_description.id);
-            catalogue.AddBus(std::string(bus_name), route_stops);
+            catalogue.AddBus(std::string(bus_name), true, route_stops, {});
         }
     }
 }
