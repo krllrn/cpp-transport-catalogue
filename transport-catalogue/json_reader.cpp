@@ -156,37 +156,36 @@ namespace json_reader {
     }
 
     renderer::MapRenderer JsonReader::GetRenderer() const {
-        if (!render_settings_.empty()) {
-            renderer::ImageSettings image_settings(render_settings_.at("width").AsDouble(), render_settings_.at("height").AsDouble(), render_settings_.at("padding").AsDouble());
-
-            double line_width = render_settings_.at("line_width").AsDouble();
-            double stop_radius = render_settings_.at("stop_radius").AsDouble();
-
-            std::vector<double> bus_label_offset;
-            for (const auto& value : render_settings_.at("bus_label_offset").AsArray()) {
-                bus_label_offset.emplace_back(value.AsDouble());
-            }
-            renderer::BusSettings bus_settings(render_settings_.at("bus_label_font_size").AsInt(), std::move(bus_label_offset));
-
-            std::vector<double> stop_label_offset;
-            for (const auto& value : render_settings_.at("stop_label_offset").AsArray()) {
-                stop_label_offset.emplace_back(value.AsDouble());
-            }
-            renderer::StopSettings stop_settings(render_settings_.at("stop_label_font_size").AsInt(), stop_label_offset);
-
-            svg::Color color = detail::ParseColor(render_settings_.at("underlayer_color"));
-            renderer::UnderlayerSettings underlayer_settings(render_settings_.at("underlayer_width").AsDouble(), std::move(color));
-
-            std::vector<svg::Color> color_palette;
-            for (const auto& color : render_settings_.at("color_palette").AsArray()) {
-                color_palette.emplace_back(detail::ParseColor(color));
-            }
-
-            return renderer::MapRenderer(image_settings, line_width, stop_radius, bus_settings, stop_settings, underlayer_settings, color_palette);
-        }
-        else {
+        if (render_settings_.empty()) {
             return {};
         }
+
+        renderer::ImageSettings image_settings(render_settings_.at("width").AsDouble(), render_settings_.at("height").AsDouble(), render_settings_.at("padding").AsDouble());
+
+        double line_width = render_settings_.at("line_width").AsDouble();
+        double stop_radius = render_settings_.at("stop_radius").AsDouble();
+
+        std::vector<double> bus_label_offset;
+        for (const auto& value : render_settings_.at("bus_label_offset").AsArray()) {
+            bus_label_offset.emplace_back(value.AsDouble());
+        }
+        renderer::BusSettings bus_settings(render_settings_.at("bus_label_font_size").AsInt(), std::move(bus_label_offset));
+
+        std::vector<double> stop_label_offset;
+        for (const auto& value : render_settings_.at("stop_label_offset").AsArray()) {
+            stop_label_offset.emplace_back(value.AsDouble());
+        }
+        renderer::StopSettings stop_settings(render_settings_.at("stop_label_font_size").AsInt(), stop_label_offset);
+
+        svg::Color color = detail::ParseColor(render_settings_.at("underlayer_color"));
+        renderer::UnderlayerSettings underlayer_settings(render_settings_.at("underlayer_width").AsDouble(), std::move(color));
+
+        std::vector<svg::Color> color_palette;
+        for (const auto& color : render_settings_.at("color_palette").AsArray()) {
+            color_palette.emplace_back(detail::ParseColor(color));
+        }
+
+        return renderer::MapRenderer(image_settings, line_width, stop_radius, bus_settings, stop_settings, underlayer_settings, color_palette);
     }
 
     void JsonReader::GetBus(json::Dict& node) {
