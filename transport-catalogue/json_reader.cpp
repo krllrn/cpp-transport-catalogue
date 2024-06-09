@@ -1,6 +1,7 @@
 #include <sstream>
 
 #include "json_reader.h"
+#include "json_builder.h"
 
 /*
  * Здесь можно разместить код наполнения транспортного справочника данными из JSON,
@@ -30,53 +31,62 @@ namespace json_reader {
         json::Dict ParseBusAnswer(std::optional<domain::RouteInformation> route_info, int request_id) {
             using namespace std::string_literals;
 
-            json::Dict dict;
-            if (route_info) {
-                dict.insert({ "curvature"s, json::Node(route_info.value().curvature) });
-                dict.insert({ "request_id"s, json::Node(request_id) });
-                dict.insert({ "route_length"s, json::Node(route_info.value().route_length) });
-                dict.insert({ "stop_count"s, json::Node(route_info.value().all_stops) });
-                dict.insert({ "unique_stop_count"s, json::Node(route_info.value().unique_stops) });
+            if (!route_info) {
+                return json::Builder{}.StartDict()
+                            .Key("request_id"s).Value(json::Node{ request_id })
+                            .Key("error_message"s).Value(json::Node{ "not found"s })
+                        .EndDict()
+                    .Build().AsMap();
+
             }
-            else {
-                dict.insert({ "request_id"s, json::Node{request_id} });
-                dict.insert({ "error_message"s, json::Node{"not found"s} });
-            }
-            return dict;
+            return json::Builder{}.StartDict()
+                        .Key("curvature"s).Value(json::Node(route_info.value().curvature))
+                        .Key("request_id"s).Value(json::Node(request_id))
+                        .Key("route_length"s).Value(json::Node(route_info.value().route_length))
+                        .Key("stop_count"s).Value(json::Node(route_info.value().all_stops))
+                        .Key("unique_stop_count"s).Value(json::Node(route_info.value().unique_stops))
+                    .EndDict()
+                .Build().AsMap();
         }
 
         json::Dict ParseStopAnswer(Stop* stop, [[maybe_unused]]BusesPtr buses, int request_id) {
             using namespace std::string_literals;
-
-            json::Dict dict;
-            if (stop) {
-                json::Array buses_at_stop;
-                for (const auto& bus : buses) {
-                    buses_at_stop.push_back(json::Node(bus->bus_name));
-                }
-                dict.insert({ "buses"s, buses_at_stop });
-                dict.insert({ "request_id"s, json::Node(request_id) });
-            }
-            else {
-                dict.insert({ "request_id"s, json::Node{request_id} });
-                dict.insert({ "error_message"s, json::Node{"not found"s} });
+            
+            if (!stop) {
+                return json::Builder{}.StartDict()
+                            .Key("request_id"s).Value(json::Node{ request_id })
+                            .Key("error_message"s).Value(json::Node{ "not found"s })
+                        .EndDict()
+                    .Build().AsMap();
             }
 
-            return dict;
+            json::Array buses_at_stop;
+            for (const auto& bus : buses) {
+                buses_at_stop.push_back(json::Node(bus->bus_name));
+            }
+
+            return json::Builder{}.StartDict()
+                        .Key("buses"s).Value(buses_at_stop)
+                        .Key("request_id"s).Value(json::Node(request_id))
+                    .EndDict()
+                .Build().AsMap();
         }
 
         json::Dict ParseMapAnswer(std::string map_to_string, int request_id) {
             using namespace std::string_literals;
-            json::Dict dict;
-            if (!map_to_string.empty()) {
-                dict.insert({ "map"s, json::Node{map_to_string} });
-                dict.insert({ "request_id"s, json::Node{request_id} });
+            if (map_to_string.empty()) {
+                return json::Builder{}.StartDict()
+                    .Key("request_id"s).Value(json::Node{ request_id })
+                    .Key("error_message"s).Value(json::Node{ "not found"s })
+                    .EndDict()
+                    .Build().AsMap();
             }
-            else {
-                dict.insert({ "request_id"s, json::Node{request_id} });
-                dict.insert({ "error_message"s, json::Node{"map is empty"} });
-            }
-            return dict;
+
+            return json::Builder{}.StartDict()
+                .Key("map"s).Value(json::Node{ map_to_string })
+                .Key("request_id"s).Value(json::Node(request_id))
+                .EndDict()
+                .Build().AsMap();
         }
 
         svg::Color ParseColor(const json::Node& to_parse) {

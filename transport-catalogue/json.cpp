@@ -329,6 +329,10 @@ namespace json {
         return *this;
     }
 
+    Node::variant& Node::GetValue() {
+        return *this;
+    }
+
     // -------------------------------------- Print ------------------------------------------------
 
     struct PrintContext {

@@ -20,6 +20,7 @@ namespace json {
     class Node final : private std::variant<std::nullptr_t, int, double, std::string, bool, Array, Dict> {
     public:
         using variant::variant;
+        using Value = variant;
 
         int AsInt() const;
         double AsDouble() const;
@@ -39,6 +40,8 @@ namespace json {
         bool IsMap() const;
 
         const variant& GetValue() const;
+
+        variant& GetValue();
 
     };
 
