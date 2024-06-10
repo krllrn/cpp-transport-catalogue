@@ -115,10 +115,6 @@ namespace json {
     {
         return DictStartContext(builder_.StartDict());
     }
-    Builder::DictStartContext Builder::ArrayValueContext::StartDict()
-    {
-        return DictStartContext(builder_.StartDict());
-    }
 }
 
 
