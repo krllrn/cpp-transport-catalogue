@@ -5,6 +5,7 @@
 #include "json.h"
 #include "request_handler.h"
 #include "router.h"
+#include "transport_router.h"
 
 namespace json_reader {
     class JsonReader {
@@ -20,8 +21,6 @@ namespace json_reader {
     private:
         catalogue::TransportCatalogue db_;
 
-        std::unique_ptr<graph::Router<double>> router_;
-
         json::Dict render_settings_;
 
         json::Dict routing_settings_;
@@ -32,13 +31,11 @@ namespace json_reader {
 
         void LoadBaseRequest(const json::Array& requests);
 
-        void LoadStatRequest(const json::Array& requests);
+        void LoadStatRequest(const json::Array& requests, graph::Router<double>& router, transport_router::TransportRouter* ts_router);
 
         void LoadBus(json::Dict& node);
 
         void LoadStop(json::Dict& node);
-
-        void SetRouter();
 
         void GetBus(json::Dict& node);
 
@@ -46,7 +43,7 @@ namespace json_reader {
 
         void GetMap(json::Dict& node);
 
-        void GetRoute(json::Dict& node);
+        void GetRoute(json::Dict& node, graph::Router<double>& router, transport_router::TransportRouter* ts_router);
 
         renderer::MapRenderer GetRenderer() const;
     };

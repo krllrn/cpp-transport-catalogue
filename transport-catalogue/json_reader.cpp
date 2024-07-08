@@ -2,8 +2,6 @@
 
 #include "json_reader.h"
 #include "json_builder.h"
-#include "transport_router.h"
-
 
 /*
  * Здесь можно разместить код наполнения транспортного справочника данными из JSON,
@@ -135,13 +133,7 @@ namespace json_reader {
                 .Key("items").Value(items)
                 .EndDict().Build().AsMap();
         }
-    } // namespace detail
-
-    void JsonReader::SetRouter() {
-        db_.FillEdges(routing_settings_.at("bus_velocity").AsInt());
-        graph::Router<double> router(*db_.GetDwg());
-        router_ = std::make_unique<graph::Router<double>>(router);
-    }
+    } // namespace detail  
 
     void JsonReader::LoadDictionary(std::istream& strm) {
         json::Dict main_dict = LoadJSON(strm).GetRoot().AsMap();
@@ -157,8 +149,10 @@ namespace json_reader {
         json::Array stat_requests = main_dict.at("stat_requests").AsArray();
 
         LoadBaseRequest(base_requests);
-        SetRouter();
-        LoadStatRequest(stat_requests);
+        transport_router::TransportRouter ts_router(db_, routing_settings_.at("bus_velocity").AsInt(),
+            routing_settings_.at("bus_wait_time").AsInt());
+        auto router = ts_router.GetRouter();
+        LoadStatRequest(stat_requests, router, &ts_router);
     }
 
     void JsonReader::LoadBus(json::Dict& node) {
@@ -178,7 +172,6 @@ namespace json_reader {
     void JsonReader::LoadStop(json::Dict& node) {
         geo::Coordinates stop_coordinates{ node.at("latitude").AsDouble(), node.at("longitude").AsDouble() };
         db_.AddStop(node.at("name").AsString(), stop_coordinates);
-        db_.AddStopAsVertex(node.at("name").AsString(), routing_settings_.at("bus_wait_time").AsInt());
         if (node.at("road_distances").IsMap()) {
             json::Dict road_distances = node.at("road_distances").AsMap();
             if (!road_distances.empty()) {
@@ -265,11 +258,11 @@ namespace json_reader {
         answers_.emplace_back(detail::ParseMapAnswer(str_strm.str(), node.at("id").AsInt()));
     }
 
-    void JsonReader::GetRoute(json::Dict& node) {
+    void JsonReader::GetRoute(json::Dict& node, graph::Router<double>& router, transport_router::TransportRouter* ts_router) {
         Stop* from = db_.FindStop(node.at("from").AsString());
         Stop* to = db_.FindStop(node.at("to").AsString());
-        transport_router::TransportRouter ts_router(&db_, router_.get());
-        std::optional<transport_router::Result> route = ts_router.CreateRoute(from, to);
+
+        std::optional<transport_router::Result> route = ts_router->CreateRoute(router, from, to);
         if (!route.has_value()) {
             answers_.emplace_back(detail::ParseNotFoundAnswer(node.at("id").AsInt()));
         }
@@ -278,7 +271,7 @@ namespace json_reader {
         }
     }
 
-    void JsonReader::LoadStatRequest(const json::Array& requests) {
+    void JsonReader::LoadStatRequest(const json::Array& requests, graph::Router<double>& router, transport_router::TransportRouter* ts_router) {
         for (const auto& request : requests) {
             json::Dict node = request.AsMap();
             if (node.at("type").AsString() == "Bus") {
@@ -291,7 +284,7 @@ namespace json_reader {
                 GetMap(node);
             }
             else if (node.at("type").AsString() == "Route") {
-                GetRoute(node);
+                GetRoute(node, router, ts_router);
             }
         }
     }
