@@ -1,7 +1,10 @@
 #pragma once
 
+#include <memory>
+
 #include "json.h"
 #include "request_handler.h"
+#include "router.h"
 
 namespace json_reader {
     class JsonReader {
@@ -17,7 +20,11 @@ namespace json_reader {
     private:
         catalogue::TransportCatalogue db_;
 
+        std::unique_ptr<graph::Router<double>> router_;
+
         json::Dict render_settings_;
+
+        json::Dict routing_settings_;
 
         json::Array answers_;
 
@@ -31,11 +38,15 @@ namespace json_reader {
 
         void LoadStop(json::Dict& node);
 
+        void SetRouter();
+
         void GetBus(json::Dict& node);
 
         void GetStop(json::Dict& node);
 
         void GetMap(json::Dict& node);
+
+        void GetRoute(json::Dict& node);
 
         renderer::MapRenderer GetRenderer() const;
     };

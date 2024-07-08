@@ -13,6 +13,96 @@ void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates stop_
         stops_.emplace_back(std::move(Stop{ name, stop_coordinates }));
         stops_catalogue_[stops_.back().stop_name] = &stops_.back();
         stop_and_buses_[TransportCatalogue::FindStop(name)] = {};
+        auto stop = TransportCatalogue::FindStop(name);
+        portals_[stop] = portals_.size() + hubs_.size();
+        hubs_[stop] = portals_.size() + hubs_.size();
+        dwg_.ResizeIncidenceList(portals_.size() + hubs_.size());
+    }
+}
+
+void TransportCatalogue::AddStopAsVertex(const std::string& name, int bus_wait_time) {
+    auto stop = TransportCatalogue::FindStop(name);
+    dwg_.AddEdge(graph::Edge<double>{
+        portals_.at(stop), stop->stop_name, hubs_.at(stop), stop->stop_name, bus_wait_time * 1.0, {}});
+}
+
+graph::DirectedWeightedGraph<double>* catalogue::TransportCatalogue::GetDwg()
+{
+    return &dwg_;
+}
+
+size_t catalogue::TransportCatalogue::GetPortalId(Stop* stop)
+{
+    return portals_.at(stop);
+}
+
+size_t catalogue::TransportCatalogue::GetHubId(Stop* stop)
+{
+    return hubs_.at(stop);
+}
+
+/*
+void catalogue::TransportCatalogue::FillEdges(int bus_velocity) {
+    for (const auto& bus : buses_) {
+        for (size_t i = 0; i < bus.stops.size(); ++i) {
+            int passed_distance = 0;
+            for (size_t j = i + 1; j < bus.stops.size(); ++j) {
+                int distance = TransportCatalogue::GetDistanceBetweenStops(bus.stops[i], bus.stops[j]);
+                if (distance == 0) {
+                    if (!bus.is_roundtrip) {
+                        distance = TransportCatalogue::GetDistanceBetweenStops(bus.stops[j], bus.stops[i]);
+                        if (distance == 0) {
+                            distance = passed_distance + TransportCatalogue::GetDistanceBetweenStops(bus.stops[j - 1], bus.stops[j]);
+                            passed_distance = distance;
+                        }
+                        else {
+                            passed_distance += distance;
+                        }
+                    }
+                    else {
+                        distance = passed_distance + TransportCatalogue::GetDistanceBetweenStops(bus.stops[j - 1], bus.stops[j]);
+                        passed_distance = distance;
+                    }
+                }
+                else {
+                    passed_distance += distance;
+                }
+                if (distance != 0) {
+                    dwg_.AddEdge(graph::Edge<double>{
+                        TransportCatalogue::GetHubId(bus.stops[i]),
+                            bus.stops[i]->stop_name, TransportCatalogue::GetPortalId(bus.stops[j]),
+                            bus.stops[j]->stop_name, distance / (bus_velocity * 16.667), bus.bus_name });
+                }
+            }
+        }
+    }
+}
+*/
+template<typename It>
+void catalogue::TransportCatalogue::ParseBusRouteOnEdges(It begin, It end, int bus_velocity, const Bus* bus) {
+    for (auto from = begin; from != end; ++from) {
+        int distance = 0;
+        for (auto to = std::next(from); to != end; ++to) {
+
+            auto prev_to = std::prev(to);
+            distance += TransportCatalogue::GetDistanceBetweenStops(*prev_to, *to);
+            if (TransportCatalogue::GetDistanceBetweenStops(*prev_to, *to) == 0 && !bus->is_roundtrip) {
+                distance += TransportCatalogue::GetDistanceBetweenStops(*to, *prev_to);
+            }
+
+            double weight = distance / (bus_velocity * 16.667);
+            auto from_s = *from;
+            auto to_s = *to;
+            dwg_.AddEdge(graph::Edge<double>{
+                hubs_.at(from_s), from_s->stop_name,
+                    portals_.at(to_s), to_s->stop_name, weight, bus->bus_name });
+        }
+    }
+}
+
+void catalogue::TransportCatalogue::FillEdges(int bus_velocity) {
+    for (const auto& bus : buses_) {
+            ParseBusRouteOnEdges(bus.stops.begin(), bus.stops.end(), bus_velocity, &bus);
     }
 }
 
@@ -121,4 +211,11 @@ const RouteInformation TransportCatalogue::GetRouteInformation(Bus* bus){
 void TransportCatalogue::AddDistanceBetweenStops(Stop* from, Stop* to, int distance) {
     RoutePoints stops_point = { from, to };
     stop_and_distances_[stops_point] = distance;
+}
+
+int TransportCatalogue::GetDistanceBetweenStops(Stop* from, Stop* to) {
+    if (!stop_and_distances_.count({ from, to })) {
+        return 0;
+    }
+    return stop_and_distances_.at({ from, to });
 }

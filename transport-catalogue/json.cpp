@@ -341,7 +341,7 @@ namespace json {
         int indent = 0;
 
         void PrintIndent() const {
-            for (int i = 0; i < indent; ++i) {
+            for (int i = 0; i < indent_step; ++i) {
                 out.put(' ');
             }
         }
@@ -411,9 +411,11 @@ namespace json {
                 if (is_first == false) {
                     ctx_.out << ", "sv;
                 }
+                ctx_.out << '\n';
                 PrintNode(n, ctx_.out);
                 is_first = false;
             }
+            ctx_.out << '\n';
             ctx_.out.put(']');
         }
 
@@ -424,11 +426,13 @@ namespace json {
                 if (is_first == false) {
                     ctx_.out << ", "sv;
                 }
+                ctx_.out << '\n';
                 ctx_.PrintIndent();
                 ctx_.out << "\""sv << key << "\":"sv;
                 PrintNode(value, ctx_.out);
                 is_first = false;
             }
+            ctx_.out << '\n';
             ctx_.out.put('}');
         }
 

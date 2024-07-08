@@ -2,6 +2,8 @@
 
 #include "json_reader.h"
 #include "json_builder.h"
+#include "transport_router.h"
+
 
 /*
  * Здесь можно разместить код наполнения транспортного справочника данными из JSON,
@@ -11,6 +13,8 @@
 namespace json_reader {
 
     namespace detail {
+        using namespace std::string_literals;
+
         /**
         * Парсит маршрут.
         * Для кольцевого маршрута ("is_roundtrip": true) возвращает массив названий остановок [A,B,C,A] - ">"
@@ -28,17 +32,20 @@ namespace json_reader {
             return results;
         }
 
+        json::Dict ParseNotFoundAnswer(int request_id) {
+
+            return json::Builder{}.StartDict()
+                .Key("request_id"s).Value(json::Node{ request_id })
+                .Key("error_message"s).Value(json::Node{ "not found"s })
+                .EndDict()
+                .Build().AsMap();
+        }
+
         json::Dict ParseBusAnswer(std::optional<domain::RouteInformation> route_info, int request_id) {
-            using namespace std::string_literals;
-
             if (!route_info) {
-                return json::Builder{}.StartDict()
-                            .Key("request_id"s).Value(json::Node{ request_id })
-                            .Key("error_message"s).Value(json::Node{ "not found"s })
-                        .EndDict()
-                    .Build().AsMap();
-
+                return ParseNotFoundAnswer(request_id);
             }
+
             return json::Builder{}.StartDict()
                         .Key("curvature"s).Value(json::Node(route_info.value().curvature))
                         .Key("request_id"s).Value(json::Node(request_id))
@@ -50,14 +57,9 @@ namespace json_reader {
         }
 
         json::Dict ParseStopAnswer(Stop* stop, [[maybe_unused]]BusesPtr buses, int request_id) {
-            using namespace std::string_literals;
             
             if (!stop) {
-                return json::Builder{}.StartDict()
-                            .Key("request_id"s).Value(json::Node{ request_id })
-                            .Key("error_message"s).Value(json::Node{ "not found"s })
-                        .EndDict()
-                    .Build().AsMap();
+                return ParseNotFoundAnswer(request_id);
             }
 
             json::Array buses_at_stop;
@@ -73,13 +75,8 @@ namespace json_reader {
         }
 
         json::Dict ParseMapAnswer(std::string map_to_string, int request_id) {
-            using namespace std::string_literals;
             if (map_to_string.empty()) {
-                return json::Builder{}.StartDict()
-                    .Key("request_id"s).Value(json::Node{ request_id })
-                    .Key("error_message"s).Value(json::Node{ "not found"s })
-                    .EndDict()
-                    .Build().AsMap();
+                return ParseNotFoundAnswer(request_id);
             }
 
             return json::Builder{}.StartDict()
@@ -108,18 +105,59 @@ namespace json_reader {
             }
             return svg::NoneColor;
         }
+
+        json::Dict ParseRouteAnswer(int request_id, transport_router::Result route) {
+            std::vector<json::Node> items;
+            for (const auto& event : route.events) {
+                if (event.state == transport_router::EVENT_STATE::WAIT) {
+                    json::Node wait = json::Builder{}.StartDict()
+                        .Key("type").Value(std::string("Wait"))
+                        .Key("stop_name").Value(json::Node{ std::string(event.stop_name) })
+                        .Key("time").Value(event.time)
+                        .EndDict().Build();
+
+                    items.push_back(wait);
+                }
+                else if (event.state == transport_router::EVENT_STATE::BUS) {
+                    json::Node bus = json::Builder{}.StartDict()
+                        .Key("type").Value(std::string("Bus"))
+                        .Key("bus").Value(json::Node{ std::string(event.bus_name) })
+                        .Key("span_count").Value(event.span_count)
+                        .Key("time").Value(event.time)
+                        .EndDict().Build();
+
+                    items.push_back(bus);
+                }
+            }
+
+            return json::Builder{}.StartDict().Key("request_id").Value(request_id)
+                .Key("total_time").Value(route.total_time)
+                .Key("items").Value(items)
+                .EndDict().Build().AsMap();
+        }
     } // namespace detail
+
+    void JsonReader::SetRouter() {
+        db_.FillEdges(routing_settings_.at("bus_velocity").AsInt());
+        graph::Router<double> router(*db_.GetDwg());
+        router_ = std::make_unique<graph::Router<double>>(router);
+    }
 
     void JsonReader::LoadDictionary(std::istream& strm) {
         json::Dict main_dict = LoadJSON(strm).GetRoot().AsMap();
-
-        json::Array base_requests = main_dict.at("base_requests").AsArray();
+        
         if (main_dict.count("render_settings")) {
             render_settings_ = main_dict.at("render_settings").AsMap();
         }
+        if (main_dict.count("routing_settings")) {
+            routing_settings_ = main_dict.at("routing_settings").AsMap();
+        }
+
+        json::Array base_requests = main_dict.at("base_requests").AsArray();
         json::Array stat_requests = main_dict.at("stat_requests").AsArray();
 
         LoadBaseRequest(base_requests);
+        SetRouter();
         LoadStatRequest(stat_requests);
     }
 
@@ -140,6 +178,7 @@ namespace json_reader {
     void JsonReader::LoadStop(json::Dict& node) {
         geo::Coordinates stop_coordinates{ node.at("latitude").AsDouble(), node.at("longitude").AsDouble() };
         db_.AddStop(node.at("name").AsString(), stop_coordinates);
+        db_.AddStopAsVertex(node.at("name").AsString(), routing_settings_.at("bus_wait_time").AsInt());
         if (node.at("road_distances").IsMap()) {
             json::Dict road_distances = node.at("road_distances").AsMap();
             if (!road_distances.empty()) {
@@ -226,6 +265,19 @@ namespace json_reader {
         answers_.emplace_back(detail::ParseMapAnswer(str_strm.str(), node.at("id").AsInt()));
     }
 
+    void JsonReader::GetRoute(json::Dict& node) {
+        Stop* from = db_.FindStop(node.at("from").AsString());
+        Stop* to = db_.FindStop(node.at("to").AsString());
+        transport_router::TransportRouter ts_router(&db_, router_.get());
+        std::optional<transport_router::Result> route = ts_router.CreateRoute(from, to);
+        if (!route.has_value()) {
+            answers_.emplace_back(detail::ParseNotFoundAnswer(node.at("id").AsInt()));
+        }
+        else {
+            answers_.emplace_back(detail::ParseRouteAnswer(node.at("id").AsInt(), route.value()));
+        }
+    }
+
     void JsonReader::LoadStatRequest(const json::Array& requests) {
         for (const auto& request : requests) {
             json::Dict node = request.AsMap();
@@ -237,6 +289,9 @@ namespace json_reader {
             }
             else if (node.at("type").AsString() == "Map") {
                 GetMap(node);
+            }
+            else if (node.at("type").AsString() == "Route") {
+                GetRoute(node);
             }
         }
     }

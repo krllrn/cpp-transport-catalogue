@@ -30,6 +30,8 @@ namespace domain {
         bool is_roundtrip;
         std::vector<Stop*> stops;
         std::vector<Stop*> ends;
+
+
     };
 
     struct RoutePoints {
