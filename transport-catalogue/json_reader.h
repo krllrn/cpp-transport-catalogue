@@ -31,7 +31,7 @@ namespace json_reader {
 
         void LoadBaseRequest(const json::Array& requests);
 
-        void LoadStatRequest(const json::Array& requests, graph::Router<double>& router, transport_router::TransportRouter* ts_router);
+        void LoadStatRequest(const json::Array& requests, transport_router::TransportRouter* ts_router);
 
         void LoadBus(json::Dict& node);
 
@@ -43,7 +43,7 @@ namespace json_reader {
 
         void GetMap(json::Dict& node);
 
-        void GetRoute(json::Dict& node, graph::Router<double>& router, transport_router::TransportRouter* ts_router);
+        void GetRoute(json::Dict& node, transport_router::TransportRouter* ts_router);
 
         renderer::MapRenderer GetRenderer() const;
     };

@@ -149,10 +149,9 @@ namespace json_reader {
         json::Array stat_requests = main_dict.at("stat_requests").AsArray();
 
         LoadBaseRequest(base_requests);
-        transport_router::TransportRouter ts_router(db_, routing_settings_.at("bus_velocity").AsInt(),
-            routing_settings_.at("bus_wait_time").AsInt());
-        auto router = ts_router.GetRouter();
-        LoadStatRequest(stat_requests, router, &ts_router);
+        transport_router::TransportRouter ts_router(db_, transport_router::RoutingSettings{ routing_settings_.at("bus_velocity").AsDouble(),
+            routing_settings_.at("bus_wait_time").AsDouble() });
+        LoadStatRequest(stat_requests, &ts_router);
     }
 
     void JsonReader::LoadBus(json::Dict& node) {
@@ -258,11 +257,11 @@ namespace json_reader {
         answers_.emplace_back(detail::ParseMapAnswer(str_strm.str(), node.at("id").AsInt()));
     }
 
-    void JsonReader::GetRoute(json::Dict& node, graph::Router<double>& router, transport_router::TransportRouter* ts_router) {
+    void JsonReader::GetRoute(json::Dict& node, transport_router::TransportRouter* ts_router) {
         Stop* from = db_.FindStop(node.at("from").AsString());
         Stop* to = db_.FindStop(node.at("to").AsString());
 
-        std::optional<transport_router::Result> route = ts_router->CreateRoute(router, from, to);
+        std::optional<transport_router::Result> route = ts_router->CreateRoute(from, to);
         if (!route.has_value()) {
             answers_.emplace_back(detail::ParseNotFoundAnswer(node.at("id").AsInt()));
         }
@@ -271,7 +270,7 @@ namespace json_reader {
         }
     }
 
-    void JsonReader::LoadStatRequest(const json::Array& requests, graph::Router<double>& router, transport_router::TransportRouter* ts_router) {
+    void JsonReader::LoadStatRequest(const json::Array& requests, transport_router::TransportRouter* ts_router) {
         for (const auto& request : requests) {
             json::Dict node = request.AsMap();
             if (node.at("type").AsString() == "Bus") {
@@ -284,7 +283,7 @@ namespace json_reader {
                 GetMap(node);
             }
             else if (node.at("type").AsString() == "Route") {
-                GetRoute(node, router, ts_router);
+                GetRoute(node, ts_router);
             }
         }
     }

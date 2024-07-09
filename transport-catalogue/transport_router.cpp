@@ -1,18 +1,19 @@
 #include "transport_router.h"
 
 namespace transport_router {
-    TransportRouter::TransportRouter(const catalogue::TransportCatalogue& db, int bus_velocity, int bus_wait_time)
+    TransportRouter::TransportRouter(const catalogue::TransportCatalogue& db, RoutingSettings settings)
         :db_(db),
-        bus_velocity_(bus_velocity * 16.667),
-        bus_wait_time_(bus_wait_time * 1.0)
+        settings_(settings)
     {
         AddStopsAsVertex();
         FillEdges();
+        graph::Router<double> r(dwg_);
+        router_ptr_ = std::make_unique<graph::Router<double>>(r);
     }
 
-    std::optional<transport_router::Result> TransportRouter::CreateRoute(const graph::Router<double>& router, domain::Stop* from, domain::Stop* to)
+    std::optional<transport_router::Result> TransportRouter::CreateRoute(domain::Stop* from, domain::Stop* to)
     {
-        std::optional<graph::Router<double>::RouteInfo> route = router.BuildRoute(db_.GetPortalId(from), db_.GetPortalId(to));
+        std::optional<graph::Router<double>::RouteInfo> route = router_ptr_.get()->BuildRoute(db_.GetPortalId(from), db_.GetPortalId(to));
 
         if (!route) {
             return std::nullopt;
@@ -50,12 +51,6 @@ namespace transport_router {
         return result;
     }
 
-    graph::Router<double> TransportRouter::GetRouter()
-    {
-        graph::Router<double> r(dwg_);
-        return r;
-    }
-
     template<typename It>
     void TransportRouter::ParseBusRouteOnEdges(It begin, It end, const domain::Bus* bus) {
         for (auto from = begin; from != end; ++from) {
@@ -68,7 +63,7 @@ namespace transport_router {
                     distance += db_.GetDistanceBetweenStops(*to, *prev_to);
                 }
 
-                double weight = distance / bus_velocity_;
+                double weight = distance / (settings_.bus_velocity * METER_PER_MINUTE);
                 auto from_s = *from;
                 auto to_s = *to;
                 dwg_.AddEdge(graph::Edge<double>{
@@ -82,7 +77,7 @@ namespace transport_router {
         dwg_.ResizeIncidenceList(db_.GetStops()->size() * 2);
         for (const auto& [stop_name, stop] : *db_.GetStops()) {
             dwg_.AddEdge(graph::Edge<double>{
-                db_.GetPortalId(stop), stop->stop_name, db_.GetHubId(stop), stop->stop_name, bus_wait_time_, {}});
+                db_.GetPortalId(stop), stop->stop_name, db_.GetHubId(stop), stop->stop_name, settings_.bus_wait_time, {}});
         }
     }
 

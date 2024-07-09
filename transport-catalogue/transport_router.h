@@ -20,6 +20,11 @@ namespace transport_router {
         double time;
     };
 
+    struct RoutingSettings {
+        double bus_velocity;
+        double bus_wait_time;
+    };
+
     struct Result {
         double total_time = .0;
         std::vector<Event> events;
@@ -27,17 +32,16 @@ namespace transport_router {
 
     class TransportRouter {
     public:
-        explicit TransportRouter(const catalogue::TransportCatalogue& db, int bus_velocity, int bus_wait_time);
+        explicit TransportRouter(const catalogue::TransportCatalogue& db, RoutingSettings settings);
 
-        std::optional<transport_router::Result> CreateRoute(const graph::Router<double>& router, domain::Stop* from, domain::Stop* to);
-
-        graph::Router<double> GetRouter();
+        std::optional<transport_router::Result> CreateRoute(domain::Stop* from, domain::Stop* to);
 
     private:
+        const double METER_PER_MINUTE = 16.667;
         const catalogue::TransportCatalogue& db_;
         graph::DirectedWeightedGraph<double> dwg_;
-        double bus_velocity_;
-        double bus_wait_time_;
+        std::unique_ptr<graph::Router<double>> router_ptr_;
+        RoutingSettings settings_;
 
         void FillEdges();
 
